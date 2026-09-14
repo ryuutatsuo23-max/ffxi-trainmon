@@ -253,7 +253,31 @@ function monitor:process_input(mode, input)
         -- A target monster was killed which gives us the kill count, but not the name of the monster.
         if mode == chat_modes.battle and string.find(input, self._rules.target_monster_killed) then
             local count, total = string.match(input, self._rules.target_monster_killed)
-            table.insert(self._target_monster_kills, ({ count = tonumber(count), total = tonumber(total), time = os.clock() }))
+            count, total = tonumber(count), tonumber(total)
+
+            -- A unique total identifies the objective even if no named kill line
+            -- was received (for example, a monster "falls to the ground").
+            local unique_index = nil
+            for i, target in ipairs(self._target_monsters) do
+                if target.total == total then
+                    if unique_index ~= nil then
+                        unique_index = nil
+                        break
+                    end
+                    unique_index = i
+                end
+            end
+            if unique_index ~= nil then
+                local target = self._target_monsters[unique_index]
+                if count > target.count and count <= total then
+                    target.count = count
+                    self:save_training_data()
+                    array_remove(self._monster_kills, function(t, i) return t[i].index == unique_index end)
+                end
+                return
+            end
+
+            table.insert(self._target_monster_kills, ({ count = count, total = total, time = os.clock() }))
 
             self:reconcile_target_kills()
             return

@@ -1,6 +1,6 @@
 addon.name      = 'trainmon'
 addon.author    = 'onimitch'
-addon.version   = '1.3.1'
+addon.version   = '1.4.0'
 addon.desc      = 'Tracks training monster kill counts and displays them onscreen.'
 addon.link      = 'https://github.com/onimitch/ffxi-trainmon'
 
@@ -36,6 +36,8 @@ local trainmon = T{
     default_settings = T{
         visible = true,
         always_show = false,
+        background = false,
+        background_opacity = 0.65,
 
         icon_scale = 20,
         entry_icon_scale = 12,
@@ -73,6 +75,8 @@ local trainmon = T{
 
 -- UI objects
 local trainmon_ui = T{
+    config_open = { false },
+    background = nil,
     title_text = nil,
     row_entries = {},
     icon_texture = nil,
@@ -117,6 +121,7 @@ local function process_incoming_message(mode, message)
 end
 
 local function set_text_visible(visible, num_rows)
+    trainmon_ui.background:set_visible(visible and trainmon.settings.background)
     trainmon_ui.title_text:set_visible(visible)
     num_rows = num_rows or #trainmon_ui.row_entries
     for i,v in ipairs(trainmon_ui.row_entries) do
@@ -124,6 +129,43 @@ local function set_text_visible(visible, num_rows)
         v.name:set_visible(entry_visible)
         v.count:set_visible(entry_visible)
     end
+end
+
+local function draw_config()
+    if not trainmon_ui.config_open[1] then return end
+
+    if imgui.Begin('TrainMon Settings', trainmon_ui.config_open, ImGuiWindowFlags_AlwaysAutoResize) then
+        local changed = false
+        local always_show = { trainmon.settings.always_show }
+        if imgui.Checkbox('Show always (all zones)', always_show) then
+            trainmon.settings.always_show = always_show[1]
+            if always_show[1] then trainmon.settings.visible = true end
+            changed = true
+        end
+        local background = { trainmon.settings.background }
+        if imgui.Checkbox('Show background', background) then
+            trainmon.settings.background = background[1]
+            changed = true
+        end
+        local opacity = { math.floor(trainmon.settings.background_opacity * 100 + 0.5) }
+        if imgui.SliderInt('Background opacity', opacity, 0, 100, '%d%%') then
+            trainmon.settings.background_opacity = opacity[1] / 100
+            changed = true
+        end
+        local title_size = { trainmon.settings.title.font_height }
+        if imgui.SliderInt('Title text size', title_size, 12, 40, '%d px') then
+            trainmon.settings.title.font_height = title_size[1]
+            changed = true
+        end
+        local entry_size = { trainmon.settings.entry.font_height }
+        if imgui.SliderInt('Objective text size', entry_size, 10, 32, '%d px') then
+            trainmon.settings.entry.font_height = entry_size[1]
+            trainmon.settings.entry_count.font_height = entry_size[1]
+            changed = true
+        end
+        if changed then settings.save() end
+    end
+    imgui.End()
 end
 
 -- Display the latest training status
@@ -142,7 +184,7 @@ local function draw_window()
     -- 	windowFlags = bit.bor(windowFlags, ImGuiWindowFlags_NoMove)
     -- end
 
-    if (imgui.Begin('TrainMon', true, windowFlags)) then
+    if (imgui.Begin('TrainMon', nil, windowFlags)) then
         local icon_scale = trainmon.settings.icon_scale
         local entry_icon_scale = trainmon.settings.entry_icon_scale
         local entry_name_font = trainmon.settings.entry
@@ -152,8 +194,11 @@ local function draw_window()
         imgui.Image(trainmon_ui.icon_texture_data, { icon_scale, icon_scale })
 
         local zone_name = encoding:ShiftJIS_To_UTF8(AshitaCore:GetResourceManager():GetString('zones.names', trainmon.monitor._target_zone_id), true)
+        trainmon_ui.title_text:set_font_height(trainmon.settings.title.font_height)
         trainmon_ui.title_text:set_text(zone_name)
         local w, h = trainmon_ui.title_text:get_text_size()
+        local content_width = icon_scale + 5 + w
+        local content_height = math.max(icon_scale, h)
 
         trainmon_ui.title_text:set_position_x(cursor_x + icon_scale + 5)
         trainmon_ui.title_text:set_position_y(cursor_y - 2)
@@ -173,9 +218,12 @@ local function draw_window()
                 trainmon_ui.row_entries[i] = entry
             end
 
+            entry.name:set_font_height(entry_name_font.font_height)
+            entry.count:set_font_height(entry_count_font.font_height)
             entry.name:set_text(v.name)
             entry.count:set_text(string.format('(%d/%d)', v.count, v.total))
-            -- w, h = entry.name:get_text_size()
+            local nameW, nameH = entry.name:get_text_size()
+            local countW, countH = entry.count:get_text_size()
 
             imgui.SetCursorScreenPos({cursor_x + entry_icon_scale / 2, cursor_y + offsetY + 2})
             imgui.Image(trainmon_ui.entry_texture_data, { entry_icon_scale, entry_icon_scale })
@@ -184,22 +232,38 @@ local function draw_window()
             entry.count:set_position_y(cursor_y + offsetY)
 
             if col2X == 0 then
-                local countW, countH = entry.count:get_text_size()
                 col2X = col1X + countW + 5
             end
 
             entry.name:set_position_x(cursor_x + col2X)
             entry.name:set_position_y(cursor_y + offsetY)
 
-            offsetY = offsetY + entry_icon_scale + rowSpacing
+            content_width = math.max(content_width, col2X + nameW, col1X + countW)
+            content_height = math.max(content_height, offsetY + nameH, offsetY + countH, offsetY + entry_icon_scale + 2)
+            offsetY = offsetY + math.max(entry_icon_scale + rowSpacing, nameH + 4, countH + 4)
         end
 
+        -- GDI text does not contribute to ImGui's automatic window bounds.
+        imgui.SetCursorScreenPos({ cursor_x, cursor_y })
+        imgui.Dummy({ content_width + 2, content_height + 2 })
+        -- Draw behind the text in the same GDI layer; ImGui renders above it.
+        trainmon_ui.background:set_position_x(cursor_x - 6)
+        trainmon_ui.background:set_position_y(cursor_y - 6)
+        trainmon_ui.background:set_width(math.ceil(content_width + 12))
+        trainmon_ui.background:set_height(math.ceil(content_height + 12))
+        trainmon_ui.background:set_fill_color(bit.lshift(math.floor(trainmon.settings.background_opacity * 255 + 0.5), 24))
         set_text_visible(true, #trainmon.monitor._target_monsters)
+    else
+        set_text_visible(false)
     end
     imgui.End()
 end
 
 local function initialise_ui()
+    if trainmon_ui.background ~= nil then
+        gdi:destroy_object(trainmon_ui.background)
+    end
+    trainmon_ui.background = gdi:create_rect({ visible = false, z_order = -1, fill_color = 0xFF000000 })
     -- Image textures
     -- TODO: Replace texture_data and just render Sprites instead rather than using IMGUI (req: support our own drag to move window)
     trainmon_ui.icon_texture = load_texture('Cursor')
@@ -227,23 +291,39 @@ local pGameMenu = ashita.memory.find('FFXiMain.dll', 0, "8B480C85C974??8B510885D
 local pEventSystem = ashita.memory.find('FFXiMain.dll', 0, "A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3", 0, 0)
 local pInterfaceHidden = ashita.memory.find('FFXiMain.dll', 0, "8B4424046A016A0050B9????????E8????????F6D81BC040C3", 0, 0)
 
+local function has_pointer(ptr)
+    return type(ptr) == 'number' and ptr ~= 0
+end
+
 local function get_game_menu_name()
+    if not has_pointer(pGameMenu) then
+        return ''
+    end
     local subPointer = ashita.memory.read_uint32(pGameMenu)
+    if not has_pointer(subPointer) then
+        return ''
+    end
     local subValue = ashita.memory.read_uint32(subPointer)
-    if (subValue == 0) then
+    if not has_pointer(subValue) then
         return ''
     end
     local menuHeader = ashita.memory.read_uint32(subValue + 4)
+    if not has_pointer(menuHeader) then
+        return ''
+    end
     local menuName = ashita.memory.read_string(menuHeader + 0x46, 16)
+    if menuName == nil then
+        return ''
+    end
     return string.gsub(menuName, '\x00', '')
 end
 
 local function is_event_system_active()
-    if (pEventSystem == 0) then
+    if not has_pointer(pEventSystem) then
         return false
     end
     local ptr = ashita.memory.read_uint32(pEventSystem + 1)
-    if (ptr == 0) then
+    if not has_pointer(ptr) then
         return false
     end
 
@@ -251,11 +331,11 @@ local function is_event_system_active()
 end
 
 local function is_game_interface_hidden()
-    if (pInterfaceHidden == 0) then
+    if not has_pointer(pInterfaceHidden) then
         return false
     end
     local ptr = ashita.memory.read_uint32(pInterfaceHidden + 10)
-    if (ptr == 0) then
+    if not has_pointer(ptr) then
         return false
     end
 
@@ -276,6 +356,12 @@ ashita.events.register('command', 'trainmon_command', function (e)
 
     -- Block all tmon related commands..
     e.blocked = true
+
+    -- Handle: /tmon [config]
+    if #args == 1 or (#args == 2 and args[2]:any('config')) then
+        trainmon_ui.config_open[1] = true
+        return
+    end
 
     -- Handle: /tmon (st | status)
     if (#args == 2 and args[2]:any('st', 'status')) then
@@ -299,7 +385,7 @@ ashita.events.register('command', 'trainmon_command', function (e)
     -- Handle: /tmon reset
     if (#args == 2 and args[2]:any('reset')) then
         trainmon.monitor:reset_training_data()
-        trainmon.monitor:save_train_data()
+        trainmon.monitor:save_training_data()
         print(chat.header(addon.name):append(chat.message('Training data reset')))
         return
     end
@@ -337,6 +423,14 @@ end)
 * desc : Event called when the addon is being loaded.
 --]]
 ashita.events.register('load', 'trainmon_load', function()
+    local missing_scans = {}
+    if not has_pointer(pGameMenu) then table.insert(missing_scans, 'game menu') end
+    if not has_pointer(pEventSystem) then table.insert(missing_scans, 'event system') end
+    if not has_pointer(pInterfaceHidden) then table.insert(missing_scans, 'interface hidden') end
+    if #missing_scans > 0 then
+        print(chat.header(addon.name):append(chat.message('Memory scan unavailable (' .. table.concat(missing_scans, ', ') .. '); related window hiding may not work.')))
+    end
+
     -- Load User settings
     trainmon.settings = settings.load(trainmon.default_settings)
 
@@ -397,7 +491,7 @@ ashita.events.register('d3d_present', 'trainmon_present', function()
     -- Don't render until we have a player entity
     local player = AshitaCore:GetMemoryManager():GetPlayer()
     local player_ent = GetPlayerEntity()
-    if player == nil or player.isZoning or player_ent == nil then
+    if player == nil or player:GetIsZoning() ~= 0 or player_ent == nil then
 		set_text_visible(false)
 		return
 	end
@@ -433,6 +527,7 @@ ashita.events.register('d3d_present', 'trainmon_present', function()
             trainmon.monitor:save_training_data()
         end
 
+        draw_config()
         draw_window()
     end
 end)

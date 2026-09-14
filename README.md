@@ -26,6 +26,8 @@ You can drag the window by mouse click and hold on the arrow icon.
 
 You can use `/trainmon` or `/tmon`
 
+`/trainmon config` (or `/trainmon` alone) - Open the settings window. Show the current regime in all zones, toggle the background, adjust its opacity (0% transparent to 100% opaque), and change title and objective text sizes. Changes apply immediately and are saved. The background is disabled by default. Showing in all zones requires an existing tracked regime.
+
 `/trainmon status` - Show in chat log the current training data.
 
 `/trainmon reset` - Clear all training data from trainmon. Note this doesn't cancel your training regime with the game, it just stops the addon tracking your kills.
@@ -35,6 +37,18 @@ You can use `/trainmon` or `/tmon`
 `/trainmon show` - Show the training window only in the zone the training is for.
 
 `/trainmon show always` - Show the training window in all zones, regardless of what zone the training is for.
+
+## Version 1.4.0
+
+- Updated the ImGui window argument and numeric Ashita zoning check.
+- Guarded missing memory scans and intermediate pointers. Unresolved scans are reported at load; their related automatic hiding may be unavailable. Memory signatures were not replaced.
+- Added saved background, opacity, text-size, and all-zones controls in the settings window.
+- Used server progress directly when its total uniquely identifies an objective, including when a named defeat message is missing. Equal-total objectives retain name matching.
+- Fixed the reset command's save-method name.
+
+Offline LuaJIT checks cover syntax and server-progress regression cases. The addon display and settings have been tried in game; the reported Headsman progress case still needs live retesting.
+
+The standalone regression check is `test/test_progress.lua`; run it from this repository with LuaJIT, outside Ashita. It uses in-memory settings stubs and does not access player saves. The generated `package/` folder is excluded from Git; the `gdifonts` submodule remains pinned to its existing revision.
 
 ## How does it work?
 
