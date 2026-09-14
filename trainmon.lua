@@ -1,8 +1,8 @@
 addon.name      = 'trainmon'
-addon.author    = 'onimitch'
+addon.author    = 'onimitch; maintained by DragoHorse'
 addon.version   = '1.4.0'
 addon.desc      = 'Tracks training monster kill counts and displays them onscreen.'
-addon.link      = 'https://github.com/onimitch/ffxi-trainmon'
+addon.link      = 'https://github.com/ryuutatsuo23-max/ffxi-trainmon'
 
 require('common')
 local chat = require('chat')

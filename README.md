@@ -2,11 +2,14 @@
 
 This addon for Ashita v4 tracks and displays Training Regime objectives. It supports both English and Japanese clients.
 
+This is DragoHorse's maintained fork for Final Fantasy XI Retail and recent Ashita v4 beta builds. Original addon by [onimitch](https://github.com/onimitch/ffxi-trainmon); see [contributors and credits](CONTRIBUTORS.md).
+
 ![Example](https://github.com/onimitch/ffxi-trainmon/blob/main/Example.png "Example")
 
 
 ## How to install:
-1. Download the latest Release from the [Releases page](https://github.com/onimitch/ffxi-trainmon/releases)
+1. Download the latest Release from the [Releases page](https://github.com/ryuutatsuo23-max/ffxi-trainmon/releases)
+   Use the attached `trainmon_1.4.0.zip` asset, which includes `gdifonts`; GitHub's automatic source archives do not include submodule contents.
 2. Extract the **_trainmon_** folder to your **_Ashita4/addons_** folder
 
 ## How to have Ashita load it automatically:
@@ -46,7 +49,7 @@ You can use `/trainmon` or `/tmon`
 - Used server progress directly when its total uniquely identifies an objective, including when a named defeat message is missing. Equal-total objectives retain name matching.
 - Fixed the reset command's save-method name.
 
-Offline LuaJIT checks cover syntax and server-progress regression cases. The addon display and settings have been tried in game; the reported Headsman progress case still needs live retesting.
+Offline LuaJIT checks cover syntax and server-progress regression cases. The maintainer reports successful Retail use of the addon and settings. The specific Headsman death-message regression has passed offline replay checks; a separate live retest has not been recorded.
 
 The standalone regression check is `test/test_progress.lua`; run it from this repository with LuaJIT, outside Ashita. It uses in-memory settings stubs and does not access player saves. The generated `package/` folder is excluded from Git; the `gdifonts` submodule remains pinned to its existing revision.
 
@@ -58,8 +61,8 @@ Some training objectives require members of a family or type, and for that I've 
 
 It isn't perfect though, and despite building some fairly thorough tests that cover both English and Japanese (see test folder in the repo), there is bound to be some missing monster data.
 
-If you get the error message "Failed to find "<monster name>" in Training Data", please [create an issue on GitHub](https://github.com/onimitch/ffxi-trainmon/issues) and let me know what training regime you were doing and what monsters you killed. It helps if you can be very specific of the names that appeared in your chat log.
+If you get the error message "Failed to find "<monster name>" in Training Data", please [create an issue on GitHub](https://github.com/ryuutatsuo23-max/ffxi-trainmon/issues) and let me know what training regime you were doing and what monsters you killed. It helps if you can be very specific of the names that appeared in your chat log.
 
 ## Issues/Support
 
-I only have limited time available to offer support, but if you have a problem, have discovered a bug or want to request a feature, please [create an issue on GitHub](https://github.com/onimitch/ffxi-trainmon/issues).
+I only have limited time available to offer support, but if you have a problem, have discovered a bug or want to request a feature, please [create an issue on GitHub](https://github.com/ryuutatsuo23-max/ffxi-trainmon/issues).
